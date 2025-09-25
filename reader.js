@@ -18,8 +18,17 @@
   let rawMD = '';
   let searchHits = [];
   let currentHit = -1;
+  let mermaidRenderId = 0;
 
   const escapeHTML = (s) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // Decode common HTML entities back to characters. Needed when the source page already encoded Markdown.
+  function decodeHTMLEntities(s){
+    if (!s) return '';
+    // Use a single DOM decode pass to handle nested encodings like &amp;gt;
+    const div = document.createElement('div');
+    div.innerHTML = s;
+    return div.textContent || '';
+  }
   const getNameFromURL = (u) => { try { return decodeURIComponent(new URL(u).pathname.split('/').pop() || u); } catch { return u; } };
 
   const setSourceUI = () => {
@@ -59,12 +68,21 @@
       'timeline',
       'graph'
     ];
-    const mermaidBodyPattern = /--|->|participant|autonumber|alt\b|else\b|end\b|loop\b|rect\b|opt\b|par\b|and\b|critical\b|break\b|note\b|activate\b|deactivate\b|box\b|subgraph\b|state\b|class\b|click\b|linkStyle\b|style\b|section\b|title\b|accTitle\b|accDescr\b|accDescription\b|interpolate\b|direction\b|journey\b|timeline\b|pie\b|gitGraph\b|mindmap\b|gantt\b|erDiagram\b|stateDiagram\b|classDiagram\b|sequenceDiagram\b|graph\b|%%/i;
+    const mermaidKeywordPattern = /^\s*(?:autonumber|participant|loop|alt|else|end|opt|rect|par|and|critical|break|note|activate|deactivate|box|subgraph|state|class|click|linkStyle|style|section|title|accTitle|accDescr|accDescription|interpolate|direction|journey|timeline|pie|gitGraph|mindmap|gantt|erDiagram|stateDiagram|classDiagram|sequenceDiagram|graph)\b/i;
+    const mermaidArrowPattern = /^\s*[^:\n]+(?:--|==|->|<-)[^:\n]+:/;
+    const mermaidCommentPattern = /^\s*%%/;
     const isMermaidStart = (line) => {
       const trimmed = line.trimStart();
       if (!trimmed) return false;
       if (trimmed.startsWith('graph ')) return true;
       return mermaidStarters.some((kw) => kw !== 'graph' && trimmed.startsWith(kw));
+    };
+    const isMermaidBodyLine = (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (mermaidCommentPattern.test(trimmed)) return true;
+      if (mermaidKeywordPattern.test(trimmed)) return true;
+      return mermaidArrowPattern.test(trimmed);
     };
     const mermaidBlocks = [];
     const placeholderFor = (idx) => `__MDR_MERMAID_BLOCK_${idx}__`;
@@ -82,7 +100,7 @@
           if (current.trim() === '' && j !== i) {
             let k = j + 1;
             while (k < lines.length && lines[k].trim() === '') k++;
-            if (k < lines.length && (isMermaidStart(lines[k]) || mermaidBodyPattern.test(lines[k].trim()))) {
+            if (k < lines.length && (isMermaidStart(lines[k]) || isMermaidBodyLine(lines[k]))) {
               block.push('');
               j++;
               continue;
@@ -93,7 +111,7 @@
           else block.push(current);
           j++;
         }
-        const hasContent = block.length > 1 && block.slice(1).some((row) => mermaidBodyPattern.test(row));
+        const hasContent = block.length > 1 && block.slice(1).some((row) => isMermaidBodyLine(row) || isMermaidStart(row));
         if (hasContent) {
           const idx = mermaidBlocks.length;
           mermaidBlocks.push(block.join('\n').trim());
@@ -107,7 +125,8 @@
     }
     md = rebuilt.join('\n');
     mermaidBlocks.forEach((diagram, idx) => {
-      const html = `<div class="mermaid">${escapeHTML(diagram)}</div>`;
+      const sanitized = diagram.replace(/\n{2,}/g, '\n');
+      const html = `<div class="mermaid">${escapeHTML(sanitized)}</div>`;
       const placeholder = placeholderFor(idx);
       const re = new RegExp(escapeRegExp(placeholder), 'g');
       md = md.replace(re, () => html);
@@ -245,6 +264,10 @@
       const m = node.nodeValue.match(re);
       if (m) {
         const parent = node.parentNode;
+        if (!parent || parent.nodeType !== Node.ELEMENT_NODE) continue;
+        if (parent.closest && parent.closest('.mermaid')) continue;
+        const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
+        if (tag === 'script' || tag === 'style') continue;
         const frag = document.createDocumentFragment();
         let lastIndex = 0;
         node.nodeValue.replace(re, (match, offset) => {
@@ -294,10 +317,31 @@
     window.addEventListener('keydown', (e) => { if (e.altKey && e.key.toLowerCase() === 'd') $toggleTheme.click(); });
   }
 
-  function renderMermaid() {
+  async function renderMermaid() {
     if (!window.mermaid) return;
-    mermaid.initialize({ startOnLoad: false, theme: document.body.dataset.theme === 'dark' ? 'dark' : 'default' });
-    mermaid.run();
+    const nodes = Array.from($content.querySelectorAll('.mermaid'));
+    if (!nodes.length) return;
+
+    const theme = document.body.dataset.theme === 'dark' ? 'dark' : 'default';
+    mermaid.initialize({ startOnLoad: false, theme });
+
+    await Promise.all(nodes.map(async (el) => {
+      const source = decodeHTMLEntities((el.dataset.mdrSource || el.textContent || '').trim());
+      if (!source) return;
+      el.dataset.mdrSource = source;
+      el.textContent = source;
+      el.removeAttribute('data-processed');
+      el.removeAttribute('data-rendered');
+
+      try {
+        const id = `mdr-mermaid-${mermaidRenderId++}`;
+        const { svg } = await mermaid.render(id, source);
+        el.innerHTML = svg;
+      } catch (err) {
+        console.error('Mermaid render error', err);
+        el.innerHTML = `<pre class="mermaid-error">${escapeHTML(source)}</pre>`;
+      }
+    }));
   }
 
   function exportStandalone() {
