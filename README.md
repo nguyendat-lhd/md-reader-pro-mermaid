@@ -1,4 +1,4 @@
-## MD Reader Pro + Mermaid (Fixed)
+## MD Reader Pro
 
 A fast, simple, offline Markdown reader for Chrome. It auto-detects `.md`/raw text pages and displays them nicely with a table of contents, page search, copy/save buttons on code blocks, standalone HTML export, dark/light themes, and Mermaid rendering.
 
@@ -11,7 +11,6 @@ Place images in `docs/screenshots/` using the names below and they will render h
 
 Additional examples:
 - ![Mermaid sequence](docs/screenshots/mermaid-sequence.png)
-- ![TOC and search](docs/screenshots/toc-search.png)
 
 ### Features
 - **Auto reader view**: Detects Markdown-like or raw text pages. Press `Alt+M` to force.
