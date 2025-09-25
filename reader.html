@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MD Reader Pro + Mermaid (Fixed)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="mdr" data-theme="dark">
+  <header class="mdr-header">
+    <div class="mdr-left">
+      <button id="menuTOC" class="ghost" title="Toggle TOC (Alt+T)">☰</button>
+      <div class="mdr-title">
+        <strong id="fileName">MD Reader Pro + Mermaid</strong>
+        <span id="sourceLink"></span>
+      </div>
+    </div>
+    <div class="mdr-actions">
+      <input id="searchBox" placeholder="Search (Alt+/)" />
+      <button id="prevHit" class="ghost" title="Previous match (Shift+Enter)">↑</button>
+      <button id="nextHit" class="ghost" title="Next match (Enter)">↓</button>
+      <button id="clearSearch" class="ghost" title="Clear">✕</button>
+      <button id="toggleTheme" title="Dark/Light (Alt+D)">Light</button>
+      <button id="exportHTML" title="Export Standalone HTML">Export</button>
+      <button id="copyMD" title="Copy Markdown">Copy MD</button>
+    </div>
+  </header>
+
+  <aside id="toc" class="mdr-toc"></aside>
+
+  <main id="app" class="mdr-container">
+    <article id="content" class="markdown-body">Đang tải…</article>
+  </main>
+
+  <footer class="mdr-footer">
+    <small>Phím tắt: <code>Alt+D</code> theme, <code>Alt+T</code> TOC, <code>Alt+/</code> search, <code>Enter/Shift+Enter</code> duyệt kết quả, <code>Alt+M</code> render từ trang nguồn.</small>
+  </footer>
+
+  <script src="vendor/mermaid.min.js"></script>
+  <script src="reader.js"></script>
+</body>
+</html>
